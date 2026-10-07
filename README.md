@@ -46,7 +46,38 @@ TODO
    ```
 
 ## Backend Setup
-TODO
+1. **Navigate to the Backend Directory**:
+   ```bash
+   cd backend
+   ```
+
+2. **Create a Virtual Environment**:
+   ```bash
+   python3 -m venv venv
+   ```
+
+3. **Activate the Virtual Environment**:
+   ```bash
+   source venv/bin/activate
+   ```
+
+4. **Install Dependencies**:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. **Configure Environment Variables**:
+   ```bash
+   cp .env.example .env
+   nano .env
+   ```
+   *(Update `DB_USER` and `DB_PASSWORD` with your MySQL credentials).*
+
+6. **Run the Flask Server**:
+   ```bash
+   python app.py
+   ```
+
 
 ## Frontend Setup
 TODO
