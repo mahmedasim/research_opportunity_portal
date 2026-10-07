@@ -51,7 +51,7 @@ def health_check():
     return jsonify({"status": "ok"}), 200
 
 # -----------------------------------------------------------------------------
-# Opportunity Routes (CREATE & READ)
+# Opportunity Routes (CRUD)
 # -----------------------------------------------------------------------------
 @app.route('/api/opportunities', methods=['POST'])
 def create_opportunity():
@@ -171,6 +171,125 @@ def get_opportunity(opportunity_id):
             return jsonify({"error": f"Opportunity with id {opportunity_id} not found"}), 404
 
         return jsonify({"data": format_opportunity(row)}), 200
+
+    except Exception:
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
+
+@app.route('/api/opportunities/<opportunity_id>', methods=['PUT'])
+def update_opportunity(opportunity_id):
+    """
+    Updates an existing research opportunity.
+    Checks if record exists (404), validates partial input (400),
+    updates using a whitelist of allowed fields, and returns updated record (200).
+    """
+    if not opportunity_id.isdigit():
+        return jsonify({"error": f"Opportunity with id {opportunity_id} not found"}), 404
+
+    opp_id = int(opportunity_id)
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Check if record exists first
+        cursor.execute("SELECT id FROM research_opportunities WHERE id = %s", (opp_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            return jsonify({"error": f"Opportunity with id {opportunity_id} not found"}), 404
+
+        data = request.get_json(silent=True)
+        if data is None:
+            return jsonify({
+                "error": "Validation failed",
+                "details": {"body": "Invalid or missing JSON payload"}
+            }), 400
+
+        cleaned, errors = validate_opportunity(data, partial=True)
+        if errors:
+            return jsonify({
+                "error": "Validation failed",
+                "details": errors
+            }), 400
+
+        # Fixed whitelist of updatable column names to prevent SQL injection
+        UPDATABLE_COLUMNS = (
+            'title',
+            'description',
+            'research_area',
+            'faculty_name',
+            'department',
+            'required_skills',
+            'available_positions',
+            'application_deadline',
+            'status'
+        )
+
+        set_clauses = []
+        params = []
+        for col in UPDATABLE_COLUMNS:
+            if col in cleaned:
+                set_clauses.append(f"{col} = %s")
+                params.append(cleaned[col])
+
+        params.append(opp_id)
+        update_sql = f"UPDATE research_opportunities SET {', '.join(set_clauses)} WHERE id = %s"
+        cursor.execute(update_sql, tuple(params))
+        conn.commit()
+
+        # Re-select the updated row
+        cursor.execute("SELECT * FROM research_opportunities WHERE id = %s", (opp_id,))
+        updated_row = cursor.fetchone()
+
+        return jsonify({
+            "message": "Opportunity updated successfully",
+            "data": format_opportunity(updated_row)
+        }), 200
+
+    except Exception:
+        traceback.print_exc()
+        return jsonify({"error": "Internal server error"}), 500
+    finally:
+        if cursor is not None:
+            cursor.close()
+        if conn is not None:
+            conn.close()
+
+@app.route('/api/opportunities/<opportunity_id>', methods=['DELETE'])
+def delete_opportunity(opportunity_id):
+    """
+    Deletes a research opportunity by ID.
+    Returns 404 if not found or if ID is non-numeric,
+    otherwise deletes the row and returns 200.
+    """
+    if not opportunity_id.isdigit():
+        return jsonify({"error": f"Opportunity with id {opportunity_id} not found"}), 404
+
+    opp_id = int(opportunity_id)
+    conn = None
+    cursor = None
+    try:
+        conn = get_connection()
+        cursor = conn.cursor(dictionary=True)
+
+        # Check if record exists first
+        cursor.execute("SELECT id FROM research_opportunities WHERE id = %s", (opp_id,))
+        existing = cursor.fetchone()
+        if not existing:
+            return jsonify({"error": f"Opportunity with id {opportunity_id} not found"}), 404
+
+        cursor.execute("DELETE FROM research_opportunities WHERE id = %s", (opp_id,))
+        conn.commit()
+
+        return jsonify({
+            "message": "Opportunity deleted successfully"
+        }), 200
 
     except Exception:
         traceback.print_exc()
