@@ -1,0 +1,3 @@
+-- Database schema for University Research Opportunity Portal
+-- Database: research_portal
+-- Table: research_opportunities
