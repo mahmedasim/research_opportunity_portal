@@ -1,10 +1,11 @@
 /**
  * Main application logic for the University Research Opportunity Portal frontend.
- * Manages UI rendering, DOM events, loading states, and modal interactions.
+ * Manages UI rendering, DOM events, loading states, form validation, and modal interactions.
  */
 
-// Initialize details modal instance variable
+// Global modal instance references
 let detailsModalInstance = null;
+let formModalInstance = null;
 
 /**
  * Displays a dismissible Bootstrap alert message at the top of the page.
@@ -39,6 +40,145 @@ function showAlert(message, type = 'danger') {
     alertDiv.appendChild(closeBtn);
 
     alertContainer.appendChild(alertDiv);
+}
+
+/**
+ * Displays an alert specifically inside the opportunity form modal.
+ *
+ * @param {string} message - Error or warning text.
+ * @param {string} [type='danger'] - Bootstrap alert variant.
+ */
+function setModalAlert(message, type = 'danger') {
+    const container = document.getElementById('modal-form-alert');
+    if (!container) return;
+
+    container.innerHTML = '';
+    if (!message) return;
+
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} py-2 small mb-0 shadow-sm`;
+    alertDiv.textContent = message;
+    container.appendChild(alertDiv);
+}
+
+/**
+ * Clears all validation states, error highlights, and feedback messages from the form.
+ */
+function clearFormErrors() {
+    setModalAlert('');
+    const form = document.getElementById('opportunityForm');
+    if (!form) return;
+
+    const inputs = form.querySelectorAll('.form-control, .form-select');
+    inputs.forEach(input => {
+        input.classList.remove('is-invalid');
+    });
+
+    const feedbacks = form.querySelectorAll('.invalid-feedback');
+    feedbacks.forEach(fb => {
+        fb.textContent = '';
+    });
+}
+
+/**
+ * Highlights a specific field as invalid and sets its feedback message.
+ *
+ * @param {string} fieldId - ID of the form input field.
+ * @param {string} message - Validation error description.
+ */
+function setFieldError(fieldId, message) {
+    const input = document.getElementById(fieldId);
+    if (input) {
+        input.classList.add('is-invalid');
+    }
+
+    const feedback = document.getElementById(`feedback-${fieldId}`);
+    if (feedback) {
+        feedback.textContent = message;
+    }
+}
+
+/**
+ * Validates form inputs on the client side according to API specifications.
+ *
+ * @param {Object} data - Extracted form field values.
+ * @returns {Object} Object mapping field names to error messages (empty if valid).
+ */
+function validateOpportunityForm(data) {
+    const errors = {};
+
+    // 1. Title (required, non-blank, max 200)
+    if (!data.title) {
+        errors.title = 'Research Title is required.';
+    } else if (data.title.length > 200) {
+        errors.title = 'Title cannot exceed 200 characters.';
+    }
+
+    // 2. Description (required, non-blank)
+    if (!data.description) {
+        errors.description = 'Research Description is required.';
+    }
+
+    // 3. Research Area (required, non-blank, max 100)
+    if (!data.research_area) {
+        errors.research_area = 'Research Area is required.';
+    } else if (data.research_area.length > 100) {
+        errors.research_area = 'Research Area cannot exceed 100 characters.';
+    }
+
+    // 4. Faculty Name (required, non-blank, max 100)
+    if (!data.faculty_name) {
+        errors.faculty_name = "Faculty Member's Name is required.";
+    } else if (data.faculty_name.length > 100) {
+        errors.faculty_name = 'Faculty Name cannot exceed 100 characters.';
+    }
+
+    // 5. Department (required, non-blank, max 100)
+    if (!data.department) {
+        errors.department = 'Department is required.';
+    } else if (data.department.length > 100) {
+        errors.department = 'Department cannot exceed 100 characters.';
+    }
+
+    // 6. Required Skills (required, non-blank, max 500)
+    if (!data.required_skills) {
+        errors.required_skills = 'Required Skills are required.';
+    } else if (data.required_skills.length > 500) {
+        errors.required_skills = 'Required Skills cannot exceed 500 characters.';
+    }
+
+    // 7. Available Positions (required, whole number >= 1)
+    const rawPositions = data.available_positions;
+    if (!rawPositions) {
+        errors.available_positions = 'Number of available positions is required.';
+    } else {
+        const parsedPositions = Number(rawPositions);
+        if (!Number.isInteger(parsedPositions) || parsedPositions < 1) {
+            errors.available_positions = 'Available positions must be a whole number of at least 1.';
+        }
+    }
+
+    // 8. Application Deadline (required, valid YYYY-MM-DD date)
+    if (!data.application_deadline) {
+        errors.application_deadline = 'Application Deadline is required.';
+    } else {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(data.application_deadline)) {
+            errors.application_deadline = 'Deadline must be in YYYY-MM-DD format.';
+        } else {
+            const parsedDate = new Date(data.application_deadline);
+            if (isNaN(parsedDate.getTime())) {
+                errors.application_deadline = 'Please enter a valid calendar date.';
+            }
+        }
+    }
+
+    // 9. Status (optional, must be Open or Closed if provided)
+    if (data.status && !['Open', 'Closed'].includes(data.status)) {
+        errors.status = 'Status must be either Open or Closed.';
+    }
+
+    return errors;
 }
 
 /**
@@ -235,15 +375,146 @@ async function handleViewDetails(id) {
     }
 }
 
+/**
+ * Opens the opportunity form modal in "Create" mode with blank fields.
+ */
+function openCreateOpportunityModal() {
+    clearFormErrors();
+
+    // Reset hidden ID and all form fields
+    document.getElementById('opportunity-id').value = '';
+    document.getElementById('opportunityForm').reset();
+    document.getElementById('status').value = 'Open';
+
+    // Set modal titles and button texts for Create mode
+    document.getElementById('opportunityFormModalLabel').textContent = 'Add Research Opportunity';
+    document.getElementById('btn-submit-opportunity').textContent = 'Create Opportunity';
+
+    // Initialize and display modal
+    const modalEl = document.getElementById('opportunityFormModal');
+    if (!formModalInstance) {
+        formModalInstance = new bootstrap.Modal(modalEl);
+    }
+    formModalInstance.show();
+}
+
+/**
+ * Handles submission of the opportunity form (client-side validation and API call).
+ *
+ * @param {Event} event - Submit event from the form.
+ */
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    clearFormErrors();
+
+    // Collect values from the form inputs
+    const formId = document.getElementById('opportunity-id').value;
+    const rawData = {
+        title: document.getElementById('title').value.trim(),
+        description: document.getElementById('description').value.trim(),
+        research_area: document.getElementById('research_area').value.trim(),
+        faculty_name: document.getElementById('faculty_name').value.trim(),
+        department: document.getElementById('department').value.trim(),
+        required_skills: document.getElementById('required_skills').value.trim(),
+        available_positions: document.getElementById('available_positions').value.trim(),
+        application_deadline: document.getElementById('application_deadline').value.trim(),
+        status: document.getElementById('status').value
+    };
+
+    // Client-side validation check
+    const errors = validateOpportunityForm(rawData);
+    if (Object.keys(errors).length > 0) {
+        // Highlight errors on invalid inputs
+        Object.entries(errors).forEach(([fieldId, message]) => {
+            setFieldError(fieldId, message);
+        });
+        // Stop execution; do NOT make network call
+        return;
+    }
+
+    // Prepare clean payload for the API
+    const payload = {
+        title: rawData.title,
+        description: rawData.description,
+        research_area: rawData.research_area,
+        faculty_name: rawData.faculty_name,
+        department: rawData.department,
+        required_skills: rawData.required_skills,
+        available_positions: parseInt(rawData.available_positions, 10),
+        application_deadline: rawData.application_deadline,
+        status: rawData.status
+    };
+
+    // UI loading state: disable button and show indicator
+    const submitBtn = document.getElementById('btn-submit-opportunity');
+    const originalBtnText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+
+    try {
+        if (!formId) {
+            // Create mode: call POST /api/opportunities
+            await createOpportunity(payload);
+            showAlert('Research opportunity created successfully', 'success');
+        } else {
+            // Edit mode (prepared for update feature): call PUT /api/opportunities/<id>
+            await updateOpportunity(formId, payload);
+            showAlert('Research opportunity updated successfully', 'success');
+        }
+
+        // Close modal, reset form, and reload list
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+
+        if (formModalInstance) {
+            formModalInstance.hide();
+        }
+        document.getElementById('opportunityForm').reset();
+
+        // Refresh opportunities cards list
+        await loadOpportunities();
+
+    } catch (error) {
+        // Re-enable submit button and restore text
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+
+        // Keep modal open and display server-side error
+        setModalAlert(error.message, 'danger');
+
+        // If server provided field-specific validation details, mark those fields
+        if (error.details && typeof error.details === 'object') {
+            Object.entries(error.details).forEach(([field, msg]) => {
+                setFieldError(field, msg);
+            });
+        }
+    }
+}
+
 // -----------------------------------------------------------------------------
 // Initialization on page load
 // -----------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
-    // Wire "Add Opportunity" button placeholder
+    // Wire "Add Opportunity" navbar button to open the form modal
     const addBtn = document.getElementById('btn-add-opportunity');
     if (addBtn) {
-        addBtn.addEventListener('click', () => {
-            showAlert('The "Add Opportunity" form will be enabled in the next step.', 'info');
+        addBtn.addEventListener('click', openCreateOpportunityModal);
+    }
+
+    // Attach submit listener to the opportunity form
+    const formEl = document.getElementById('opportunityForm');
+    if (formEl) {
+        formEl.addEventListener('submit', handleFormSubmit);
+
+        // Remove invalid error state dynamically when user modifies input
+        formEl.querySelectorAll('.form-control, .form-select').forEach(input => {
+            input.addEventListener('input', () => {
+                if (input.classList.contains('is-invalid')) {
+                    input.classList.remove('is-invalid');
+                    const feedback = document.getElementById(`feedback-${input.id}`);
+                    if (feedback) feedback.textContent = '';
+                }
+            });
         });
     }
 

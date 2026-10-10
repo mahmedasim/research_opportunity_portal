@@ -46,7 +46,7 @@
 
         <!-- 
           ALERT CONTAINER:
-          Placeholder for dynamic dismissible alerts (e.g. API errors).
+          Placeholder for dynamic dismissible alerts (e.g. API errors, creation successes).
           - mb-4: Margin-bottom of size 4 to create breathing room above the cards.
         -->
         <div id="alert-container" class="mb-4"></div>
@@ -102,7 +102,7 @@
     </main>
 
     <!-- 
-      MODAL: Opportunity Details
+      MODAL 1: Opportunity Details
       - modal: Base modal container.
       - fade: Smooth fade-in and fade-out transition.
       - modal-dialog: Frames the modal popup window.
@@ -176,6 +176,128 @@
                 <div class="modal-footer bg-light">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+      MODAL 2: Add / Edit Opportunity Form
+      - Reusable modal for both creating and updating research opportunities.
+      - Hidden id field toggles create vs edit mode.
+    -->
+    <div class="modal fade" id="opportunityFormModal" tabindex="-1" aria-labelledby="opportunityFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <!-- Modal Header -->
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="opportunityFormModalLabel">Add Research Opportunity</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <!-- 
+                  Form Component:
+                  - novalidate: Disables default browser validation tooltips so custom Bootstrap styles can be applied.
+                -->
+                <form id="opportunityForm" novalidate>
+                    <!-- Modal Body -->
+                    <div class="modal-body p-4">
+                        <!-- Alert area for server-side submission errors -->
+                        <div id="modal-form-alert" class="mb-3"></div>
+
+                        <!-- Hidden field to store opportunity ID when editing -->
+                        <input type="hidden" id="opportunity-id" name="id">
+
+                        <!-- Research Title -->
+                        <div class="mb-3">
+                            <label for="title" class="form-label fw-semibold">
+                                Research Title <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" class="form-control" id="title" name="title" maxlength="200" placeholder="e.g., Deep Learning for Medical Imaging" required>
+                            <div class="invalid-feedback" id="feedback-title"></div>
+                        </div>
+
+                        <!-- Research Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-semibold">
+                                Research Description <span class="text-danger">*</span>
+                            </label>
+                            <textarea class="form-control" id="description" name="description" rows="4" placeholder="Detailed explanation of research goals and responsibilities..." required></textarea>
+                            <div class="invalid-feedback" id="feedback-description"></div>
+                        </div>
+
+                        <!-- Two-column row for Research Area and Department -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="research_area" class="form-label fw-semibold">
+                                    Research Area <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="research_area" name="research_area" maxlength="100" placeholder="e.g., Robotics, Artificial Intelligence" required>
+                                <div class="invalid-feedback" id="feedback-research_area"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="department" class="form-label fw-semibold">
+                                    Department <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="department" name="department" maxlength="100" placeholder="e.g., Computer Science" required>
+                                <div class="invalid-feedback" id="feedback-department"></div>
+                            </div>
+                        </div>
+
+                        <!-- Two-column row for Faculty Name and Required Skills -->
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="faculty_name" class="form-label fw-semibold">
+                                    Faculty Member's Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="faculty_name" name="faculty_name" maxlength="100" placeholder="e.g., Dr. Alice Smith" required>
+                                <div class="invalid-feedback" id="feedback-faculty_name"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="required_skills" class="form-label fw-semibold">
+                                    Required Skills <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="required_skills" name="required_skills" maxlength="500" placeholder="Python, SQL, PyTorch" required>
+                                <!-- form-text: Small helper caption -->
+                                <div class="form-text">Comma separated, e.g. Python, SQL</div>
+                                <div class="invalid-feedback" id="feedback-required_skills"></div>
+                            </div>
+                        </div>
+
+                        <!-- Three-column row for Positions, Deadline, and Status -->
+                        <div class="row g-3 mb-2">
+                            <div class="col-md-4">
+                                <label for="available_positions" class="form-label fw-semibold">
+                                    Available Positions <span class="text-danger">*</span>
+                                </label>
+                                <input type="number" class="form-control" id="available_positions" name="available_positions" min="1" step="1" placeholder="1" required>
+                                <div class="invalid-feedback" id="feedback-available_positions"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="application_deadline" class="form-label fw-semibold">
+                                    Application Deadline <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="application_deadline" name="application_deadline" required>
+                                <div class="invalid-feedback" id="feedback-application_deadline"></div>
+                            </div>
+                            <div class="col-md-4">
+                                <label for="status" class="form-label fw-semibold">Status</label>
+                                <select class="form-select" id="status" name="status">
+                                    <option value="Open" selected>Open</option>
+                                    <option value="Closed">Closed</option>
+                                </select>
+                                <div class="invalid-feedback" id="feedback-status"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modal Footer -->
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" id="btn-submit-opportunity" class="btn btn-primary fw-semibold">
+                            Create Opportunity
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
