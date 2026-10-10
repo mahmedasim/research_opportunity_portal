@@ -80,7 +80,21 @@ TODO
 
 
 ## Frontend Setup
-TODO
+1. **Navigate to the Frontend Directory**:
+   ```bash
+   cd frontend
+   ```
+
+2. **Start Local Development Server**:
+   ```bash
+   python3 -m http.server 5500
+   ```
+
+3. **Open in Browser**:
+   Open your web browser and visit:
+   ```text
+   http://localhost:5500
+   ```
 
 ## API Documentation
 TODO

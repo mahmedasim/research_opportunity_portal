@@ -1,1 +1,22 @@
-/* University Research Opportunity Portal - Custom Styles */
+/* Custom styling tweaks for Research Opportunity Portal */
+
+body {
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+/* Card hover animation for enhanced desktop interactivity */
+.opportunity-card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    border-radius: 0.5rem;
+}
+
+.opportunity-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Modal text styling */
+#modal-description {
+    line-height: 1.6;
+}
