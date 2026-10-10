@@ -173,8 +173,11 @@
                 </div>
 
                 <!-- Modal Footer -->
-                <div class="modal-footer bg-light">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="modal-footer bg-light justify-content-between">
+                    <button type="button" id="btn-modal-details-edit" class="btn btn-outline-secondary btn-sm fw-semibold">
+                        Edit Opportunity
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -298,6 +301,29 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 
+      MODAL 3: Action Confirmation Modal (for Close and Delete operations)
+      - modal-dialog-centered: Centers dialog on the screen.
+      - Dynamically updated with confirmation warning and styled action button.
+    -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-light">
+                    <h5 class="modal-title fw-bold" id="confirmationModalLabel">Confirm Action</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <p id="confirmationModalMessage" class="mb-0 text-dark"></p>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="btn-confirm-action" class="btn btn-sm fw-semibold">Confirm</button>
+                </div>
             </div>
         </div>
     </div>

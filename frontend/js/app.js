@@ -1,24 +1,41 @@
 /**
  * Main application logic for the University Research Opportunity Portal frontend.
- * Manages UI rendering, DOM events, loading states, form validation, and modal interactions.
+ * Manages UI rendering, DOM events, loading states, form validation, modals, and CRUD workflows.
  */
 
 // Global modal instance references
 let detailsModalInstance = null;
 let formModalInstance = null;
+let confirmationModalInstance = null;
+
+// Track active record in details view
+let currentViewedOpportunityId = null;
+
+// Track pending confirmation callback
+let pendingConfirmationAction = null;
+
+// Track auto-dismiss alert timer
+let alertTimeoutId = null;
 
 /**
  * Displays a dismissible Bootstrap alert message at the top of the page.
  * Safely sets the message using textContent to prevent XSS.
+ * Success alerts automatically dismiss after 4 seconds.
  *
  * @param {string} message - The message text to display.
- * @param {string} [type='danger'] - Bootstrap alert color variant ('danger', 'success', 'warning', 'info').
+ * @param {string} [type='danger'] - Bootstrap alert color variant ('success', 'danger', 'warning', 'info').
  */
 function showAlert(message, type = 'danger') {
     const alertContainer = document.getElementById('alert-container');
     if (!alertContainer) return;
 
-    // Clear any previous alerts
+    // Clear any active auto-dismiss timer
+    if (alertTimeoutId) {
+        clearTimeout(alertTimeoutId);
+        alertTimeoutId = null;
+    }
+
+    // Clear previous alert elements
     alertContainer.innerHTML = '';
 
     // Create the alert element
@@ -26,12 +43,12 @@ function showAlert(message, type = 'danger') {
     alertDiv.className = `alert alert-${type} alert-dismissible fade show shadow-sm`;
     alertDiv.setAttribute('role', 'alert');
 
-    // Create text node safely
+    // Message text added safely via textContent
     const messageSpan = document.createElement('span');
     messageSpan.textContent = message;
     alertDiv.appendChild(messageSpan);
 
-    // Create the close button
+    // Dismiss button
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'btn-close';
@@ -40,6 +57,16 @@ function showAlert(message, type = 'danger') {
     alertDiv.appendChild(closeBtn);
 
     alertContainer.appendChild(alertDiv);
+
+    // Auto-dismiss success notifications after 4 seconds
+    if (type === 'success') {
+        alertTimeoutId = setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 150);
+        }, 4000);
+    }
 }
 
 /**
@@ -202,6 +229,29 @@ function setLoading(isLoading) {
 }
 
 /**
+ * Opens a reusable confirmation modal with customizable text and action callback.
+ *
+ * @param {Object} options - Configuration object { title, message, confirmBtnText, confirmBtnClass, onConfirm }.
+ */
+function showConfirmationModal({ title, message, confirmBtnText, confirmBtnClass, onConfirm }) {
+    document.getElementById('confirmationModalLabel').textContent = title || 'Confirm Action';
+    document.getElementById('confirmationModalMessage').textContent = message || '';
+
+    const confirmBtn = document.getElementById('btn-confirm-action');
+    confirmBtn.className = `btn btn-sm fw-semibold ${confirmBtnClass || 'btn-primary'}`;
+    confirmBtn.textContent = confirmBtnText || 'Confirm';
+    confirmBtn.disabled = false;
+
+    pendingConfirmationAction = onConfirm;
+
+    const modalEl = document.getElementById('confirmationModal');
+    if (!confirmationModalInstance) {
+        confirmationModalInstance = new bootstrap.Modal(modalEl);
+    }
+    confirmationModalInstance.show();
+}
+
+/**
  * Safely creates and returns a Bootstrap card element for a research opportunity.
  * Uses safe DOM methods (createElement, textContent) to prevent XSS vulnerabilities.
  *
@@ -281,19 +331,52 @@ function createOpportunityCard(opp) {
     metaContainer.appendChild(deadlineRow);
     cardBody.appendChild(metaContainer);
 
-    // Bottom action button: "View Details"
-    const actionContainer = document.createElement('div');
-    actionContainer.className = 'mt-auto pt-2';
+    // Action buttons container
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'mt-auto pt-3 border-top';
+
+    // Row 1: View Details & Edit
+    const row1 = document.createElement('div');
+    row1.className = 'd-flex gap-2 mb-2';
 
     const viewBtn = document.createElement('button');
-    viewBtn.className = 'btn btn-outline-primary btn-sm w-100 fw-semibold';
+    viewBtn.className = 'btn btn-outline-primary btn-sm flex-fill fw-semibold';
     viewBtn.textContent = 'View Details';
-    viewBtn.addEventListener('click', () => {
-        handleViewDetails(opp.id);
-    });
+    viewBtn.addEventListener('click', () => handleViewDetails(opp.id));
 
-    actionContainer.appendChild(viewBtn);
-    cardBody.appendChild(actionContainer);
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-outline-secondary btn-sm flex-fill fw-semibold';
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => openEditOpportunityModal(opp.id));
+
+    row1.appendChild(viewBtn);
+    row1.appendChild(editBtn);
+
+    // Row 2: Close (disabled if already Closed) & Delete
+    const row2 = document.createElement('div');
+    row2.className = 'd-flex gap-2';
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'btn btn-outline-warning btn-sm flex-fill fw-semibold';
+    closeBtn.textContent = 'Close';
+    if (!isOpen) {
+        closeBtn.disabled = true;
+        closeBtn.title = 'Opportunity is already closed';
+    } else {
+        closeBtn.addEventListener('click', () => promptCloseOpportunity(opp.id));
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'btn btn-outline-danger btn-sm flex-fill fw-semibold';
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.addEventListener('click', () => promptDeleteOpportunity(opp.id));
+
+    row2.appendChild(closeBtn);
+    row2.appendChild(deleteBtn);
+
+    actionsContainer.appendChild(row1);
+    actionsContainer.appendChild(row2);
+    cardBody.appendChild(actionsContainer);
 
     card.appendChild(cardBody);
     col.appendChild(card);
@@ -337,12 +420,14 @@ async function loadOpportunities() {
  * @param {number|string} id - The ID of the opportunity to view.
  */
 async function handleViewDetails(id) {
+    currentViewedOpportunityId = id;
     try {
         const response = await getOpportunity(id);
         const opp = response.data;
 
         if (!opp) {
-            showAlert('Opportunity details could not be loaded.', 'warning');
+            showAlert('This opportunity no longer exists', 'warning');
+            await loadOpportunities();
             return;
         }
 
@@ -363,7 +448,7 @@ async function handleViewDetails(id) {
         document.getElementById('modal-created-at').textContent = opp.created_at || 'N/A';
         document.getElementById('modal-updated-at').textContent = opp.updated_at || 'N/A';
 
-        // Show the Bootstrap modal
+        // Show the Bootstrap details modal
         const modalEl = document.getElementById('opportunityDetailsModal');
         if (!detailsModalInstance) {
             detailsModalInstance = new bootstrap.Modal(modalEl);
@@ -371,7 +456,12 @@ async function handleViewDetails(id) {
         detailsModalInstance.show();
 
     } catch (error) {
-        showAlert(error.message, 'danger');
+        if (error.status === 404) {
+            showAlert('This opportunity no longer exists', 'warning');
+            await loadOpportunities();
+        } else {
+            showAlert(error.message, 'danger');
+        }
     }
 }
 
@@ -386,11 +476,11 @@ function openCreateOpportunityModal() {
     document.getElementById('opportunityForm').reset();
     document.getElementById('status').value = 'Open';
 
-    // Set modal titles and button texts for Create mode
+    // Set modal title and submit button text for Create mode
     document.getElementById('opportunityFormModalLabel').textContent = 'Add Research Opportunity';
     document.getElementById('btn-submit-opportunity').textContent = 'Create Opportunity';
 
-    // Initialize and display modal
+    // Show modal
     const modalEl = document.getElementById('opportunityFormModal');
     if (!formModalInstance) {
         formModalInstance = new bootstrap.Modal(modalEl);
@@ -399,7 +489,101 @@ function openCreateOpportunityModal() {
 }
 
 /**
- * Handles submission of the opportunity form (client-side validation and API call).
+ * Opens the opportunity form modal in "Edit" mode with pre-filled fields.
+ *
+ * @param {number|string} id - The ID of the opportunity to edit.
+ */
+async function openEditOpportunityModal(id) {
+    // Close details modal if open
+    if (detailsModalInstance) {
+        detailsModalInstance.hide();
+    }
+
+    try {
+        const response = await getOpportunity(id);
+        const opp = response.data;
+
+        if (!opp) {
+            showAlert('This opportunity no longer exists', 'warning');
+            await loadOpportunities();
+            return;
+        }
+
+        clearFormErrors();
+
+        // Populate form inputs
+        document.getElementById('opportunity-id').value = opp.id;
+        document.getElementById('title').value = opp.title || '';
+        document.getElementById('description').value = opp.description || '';
+        document.getElementById('research_area').value = opp.research_area || '';
+        document.getElementById('faculty_name').value = opp.faculty_name || '';
+        document.getElementById('department').value = opp.department || '';
+        document.getElementById('required_skills').value = opp.required_skills || '';
+        document.getElementById('available_positions').value = opp.available_positions !== undefined ? opp.available_positions : '';
+        document.getElementById('application_deadline').value = opp.application_deadline ? opp.application_deadline.slice(0, 10) : '';
+        document.getElementById('status').value = opp.status || 'Open';
+
+        // Set modal title and button text for Edit mode
+        document.getElementById('opportunityFormModalLabel').textContent = 'Edit Opportunity';
+        document.getElementById('btn-submit-opportunity').textContent = 'Update';
+
+        // Show modal
+        const modalEl = document.getElementById('opportunityFormModal');
+        if (!formModalInstance) {
+            formModalInstance = new bootstrap.Modal(modalEl);
+        }
+        formModalInstance.show();
+
+    } catch (error) {
+        if (error.status === 404) {
+            showAlert('This opportunity no longer exists', 'warning');
+            await loadOpportunities();
+        } else {
+            showAlert(error.message, 'danger');
+        }
+    }
+}
+
+/**
+ * Displays a confirmation dialog before closing an opportunity.
+ *
+ * @param {number|string} id - The ID of the opportunity to close.
+ */
+function promptCloseOpportunity(id) {
+    showConfirmationModal({
+        title: 'Close Research Opportunity',
+        message: 'Close this opportunity? Students will no longer be able to apply.',
+        confirmBtnText: 'Close Opportunity',
+        confirmBtnClass: 'btn-warning',
+        onConfirm: async () => {
+            await updateOpportunity(id, { status: 'Closed' });
+            showAlert('Opportunity closed successfully', 'success');
+            await loadOpportunities();
+        }
+    });
+}
+
+/**
+ * Displays a confirmation dialog before deleting an opportunity.
+ *
+ * @param {number|string} id - The ID of the opportunity to delete.
+ */
+function promptDeleteOpportunity(id) {
+    showConfirmationModal({
+        title: 'Delete Research Opportunity',
+        message: 'Are you sure you want to delete this opportunity? This action cannot be undone.',
+        confirmBtnText: 'Delete',
+        confirmBtnClass: 'btn-danger',
+        onConfirm: async () => {
+            await deleteOpportunity(id);
+            showAlert('Research opportunity deleted successfully', 'success');
+            await loadOpportunities();
+        }
+    });
+}
+
+/**
+ * Handles submission of the opportunity form (for both Create and Edit modes).
  *
  * @param {Event} event - Submit event from the form.
  */
@@ -424,15 +608,13 @@ async function handleFormSubmit(event) {
     // Client-side validation check
     const errors = validateOpportunityForm(rawData);
     if (Object.keys(errors).length > 0) {
-        // Highlight errors on invalid inputs
         Object.entries(errors).forEach(([fieldId, message]) => {
             setFieldError(fieldId, message);
         });
-        // Stop execution; do NOT make network call
         return;
     }
 
-    // Prepare clean payload for the API
+    // Clean payload for API
     const payload = {
         title: rawData.title,
         description: rawData.description,
@@ -449,20 +631,19 @@ async function handleFormSubmit(event) {
     const submitBtn = document.getElementById('btn-submit-opportunity');
     const originalBtnText = submitBtn.textContent;
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Saving...';
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Saving...';
 
     try {
         if (!formId) {
-            // Create mode: call POST /api/opportunities
+            // Create mode: POST /api/opportunities
             await createOpportunity(payload);
             showAlert('Research opportunity created successfully', 'success');
         } else {
-            // Edit mode (prepared for update feature): call PUT /api/opportunities/<id>
+            // Edit mode: PUT /api/opportunities/<id>
             await updateOpportunity(formId, payload);
             showAlert('Research opportunity updated successfully', 'success');
         }
 
-        // Close modal, reset form, and reload list
         submitBtn.disabled = false;
         submitBtn.textContent = originalBtnText;
 
@@ -471,18 +652,26 @@ async function handleFormSubmit(event) {
         }
         document.getElementById('opportunityForm').reset();
 
-        // Refresh opportunities cards list
+        // Refresh cards
         await loadOpportunities();
 
     } catch (error) {
-        // Re-enable submit button and restore text
         submitBtn.disabled = false;
         submitBtn.textContent = originalBtnText;
 
-        // Keep modal open and display server-side error
+        if (error.status === 404) {
+            if (formModalInstance) {
+                formModalInstance.hide();
+            }
+            showAlert('This opportunity no longer exists', 'warning');
+            await loadOpportunities();
+            return;
+        }
+
+        // Show main error inside modal
         setModalAlert(error.message, 'danger');
 
-        // If server provided field-specific validation details, mark those fields
+        // Map server validation details onto matching fields
         if (error.details && typeof error.details === 'object') {
             Object.entries(error.details).forEach(([field, msg]) => {
                 setFieldError(field, msg);
@@ -499,6 +688,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const addBtn = document.getElementById('btn-add-opportunity');
     if (addBtn) {
         addBtn.addEventListener('click', openCreateOpportunityModal);
+    }
+
+    // Wire "Edit Opportunity" button inside Details modal
+    const modalEditBtn = document.getElementById('btn-modal-details-edit');
+    if (modalEditBtn) {
+        modalEditBtn.addEventListener('click', () => {
+            if (currentViewedOpportunityId) {
+                openEditOpportunityModal(currentViewedOpportunityId);
+            }
+        });
+    }
+
+    // Wire Confirmation Modal confirm button
+    const confirmActionBtn = document.getElementById('btn-confirm-action');
+    if (confirmActionBtn) {
+        confirmActionBtn.addEventListener('click', async () => {
+            if (typeof pendingConfirmationAction === 'function') {
+                const originalText = confirmActionBtn.textContent;
+                confirmActionBtn.disabled = true;
+                confirmActionBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Processing...';
+
+                try {
+                    await pendingConfirmationAction();
+                    if (confirmationModalInstance) {
+                        confirmationModalInstance.hide();
+                    }
+                } catch (error) {
+                    if (confirmationModalInstance) {
+                        confirmationModalInstance.hide();
+                    }
+                    if (error.status === 404) {
+                        showAlert('This opportunity no longer exists', 'warning');
+                        await loadOpportunities();
+                    } else {
+                        showAlert(error.message, 'danger');
+                    }
+                } finally {
+                    confirmActionBtn.disabled = false;
+                    confirmActionBtn.textContent = originalText;
+                    pendingConfirmationAction = null;
+                }
+            }
+        });
     }
 
     // Attach submit listener to the opportunity form
