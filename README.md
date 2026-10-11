@@ -5,7 +5,7 @@ A full-stack web application designed for university academic departments, allow
 ---
 
 ## GitHub Repository (placeholder)
-**Repository URL**: `https://github.com/YOUR_USERNAME/research-opportunity-portal` *(Replace with your repository link)*
+**Repository URL**: `https://github.com/mahmedasim/research_opportunity_portal`
 
 ---
 
@@ -429,7 +429,7 @@ An automated Postman collection covering all CRUD and edge cases is included at 
 ---
 
 ## Demo Video
-- **Video Link**: `[Watch Project Demo Video](https://youtu.be/YOUR_DEMO_VIDEO_LINK)` *(Replace with your link)*
+- **Video Link**: `[Project Demo Video]`
 
 ---
 
