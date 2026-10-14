@@ -4,7 +4,7 @@ A full-stack web application designed for university academic departments, allow
 
 ---
 
-## GitHub Repository (placeholder)
+## GitHub Repository
 **Repository URL**: `https://github.com/mahmedasim/research_opportunity_portal`
 
 ---
@@ -19,7 +19,7 @@ A full-stack web application designed for university academic departments, allow
 - **CORS Support**: Cross-Origin Resource Sharing enabled for frontend development.
 - **System Health Endpoint**: Lightweight endpoint at `GET /api/health` for uptime checks.
 
-### Frontend (SPA)
+### Frontend
 - **Responsive Layout**: Clean Bootstrap 5.3 design that adapts seamlessly from mobile screens (1 column) to desktops (2-3 columns).
 - **Opportunity Cards**: Visual cards displaying research topic, faculty mentor, department, deadline, positions, and live status badges (`Open` in green, `Closed` in secondary grey).
 - **Detailed Modal View**: Inspection modal displaying the full project description, required skills, and timestamp audit info.
@@ -428,13 +428,8 @@ An automated Postman collection covering all CRUD and edge cases is included at 
 
 ---
 
-## Demo Video
-- **Video Link**: `[Project Demo Video link]`
-
----
-
 ## Author
 
 - **Name**: Muhammad Ahmed Asim
 - **Registration Number**: 24P-0740
-- **Class / Section**: BS Computer Science
+- **Class / Section**: BCS - 5C
