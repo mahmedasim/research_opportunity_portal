@@ -101,7 +101,7 @@ Before running the application on an Ubuntu Linux system, ensure the following a
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/YOUR_USERNAME/research-opportunity-portal.git
+git clone https://github.com/mahmedasim/research-opportunity-portal.git
 cd research_opportunity_portal
 ```
 
@@ -429,7 +429,7 @@ An automated Postman collection covering all CRUD and edge cases is included at 
 ---
 
 ## Demo Video
-- **Video Link**: `[Project Demo Video]`
+- **Video Link**: `[Project Demo Video link]`
 
 ---
 
